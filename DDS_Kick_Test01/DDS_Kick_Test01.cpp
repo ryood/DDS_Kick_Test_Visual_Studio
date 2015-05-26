@@ -45,15 +45,14 @@ uint8_t  decayAmount = 255;
 
 // frequency > SAMPLE_CLOCK / 2^32 = about 10.27uHz
 float waveFrequency = 1000.0f;
-float lfoFrequency = 100.0f;
+float lfoFrequency = 1.0f;
 
-int period = 884;
+int period = 4410000;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
 	uint32_t lfoCount = 0;
 	int32_t amValue;
-
 
 	_setmode(_fileno(stdout), _O_BINARY);
 
@@ -91,7 +90,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		//
 		//************************************************************************
 		wavePhaseRegister += waveTuningWord;
-		//printf("wavePhaseRegister: %d\n", wavePhaseRegister);
+		//printf("wavePhaseRegister:\t%d\n", wavePhaseRegister);
 		
 		// lookupTableのバイト長に丸める
 		// 32bit -> 10bit
@@ -99,7 +98,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		//printf("index: %d\n", index);
 
 		waveValue = *(lookupTable[0] + index);
-		// printf("waveValue: %d\n", waveValue);
+		//printf("waveValue:\t%d\n", waveValue);
 
 		// 正負ベースに変換 (11bit + 1bit)
 		waveValue = waveValue - 2048;
@@ -121,10 +120,10 @@ int _tmain(int argc, _TCHAR* argv[])
 		
 		// for 12bit output (0..4096)
 		waveValue = waveValue + 1024;
-		printf("%d\n", waveValue);
+		//printf("%d\n", waveValue);
 
 		// 16bit長の raw データとして出力
-		//fwrite(&waveValue, sizeof(waveValue), 1, stdout);
+		fwrite(&waveValue, sizeof(waveValue), 1, stdout);
 	}
 
 	return 0;
