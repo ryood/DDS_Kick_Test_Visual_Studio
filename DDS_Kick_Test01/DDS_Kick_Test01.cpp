@@ -119,10 +119,9 @@ int _tmain(int argc, _TCHAR* argv[])
 		// ************************************************************************
 		
 		// for 12bit output (0..4096)
-		waveValue = waveValue + 1024;
-		//printf("%d\n", waveValue);
+		// waveValue = waveValue + 1024; printf("%d\n", waveValue);
 
-		// 16bit長の raw データとして出力
+		// 16bit長の正負に振れるraw データとして出力
 		fwrite(&waveValue, sizeof(waveValue), 1, stdout);
 	}
 
