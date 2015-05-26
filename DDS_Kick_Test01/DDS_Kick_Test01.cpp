@@ -45,9 +45,9 @@ uint8_t  decayAmount = 255;
 
 // frequency > SAMPLE_CLOCK / 2^32 = about 10.27uHz
 float waveFrequency = 1000.0f;
-float lfoFrequency = 10.0f;
+float lfoFrequency = 100.0f;
 
-int period = 442;
+int period = 884;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -69,30 +69,58 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	for (int i = 0; i < period; i++)
 	{
-		// LFO系の処理
-		if (lfoCount++ > SAMPLE_CLOCK / LFO_SAMPLE_CLOCK)
-		{
-			lfoCount = 0;
-			decayPhaseRegister += decayTuningWord;
-			printf("decayPhaseRegister: %d\n", decayPhaseRegister);
+		// LFO系の処理 ***********************************************************
+		//
+		//************************************************************************
+		decayPhaseRegister += decayTuningWord;
+		//printf("decayPhaseRegister: %d\n", decayPhaseRegister);
 
-			// lookupTableのバイト長に丸める
-			// 32bit -> 10bit
-			uint16_t decayIndex = decayPhaseRegister >> 22;
-			//printf("decayIndex: %d\n", decayIndex);
+		// lookupTableのバイト長に丸める
+		// 32bit -> 10bit
+		uint16_t decayIndex = decayPhaseRegister >> 22;
+		//printf("decayIndex: %d\n", decayIndex);
 
-			amValue = *(lookupTable[1] + decayIndex);
-			//printf("amValue: %d\n", amValue);
-		}
+		amValue = *(lookupTable[1] + decayIndex);
+		//printf("amValue:\t%d\n", amValue);
+
+		// 正負ベースに変換 (11bit + 1bit)
+		amValue = amValue - 2048;
+		//printf("amValue:\t%d\n", amValue);
+			
+		// Wave系の処理 ***********************************************************
+		//
+		//************************************************************************
 		wavePhaseRegister += waveTuningWord;
 		//printf("wavePhaseRegister: %d\n", wavePhaseRegister);
-
+		
 		// lookupTableのバイト長に丸める
 		// 32bit -> 10bit
 		uint16_t index = (wavePhaseRegister) >> 22;
 		//printf("index: %d\n", index);
 
-		waveValue = (*(lookupTable[0] + index) << 4) - 0x8000;
+		waveValue = *(lookupTable[0] + index);
+		// printf("waveValue: %d\n", waveValue);
+
+		// 正負ベースに変換 (11bit + 1bit)
+		waveValue = waveValue - 2048;
+		//printf("waveValue:\t%d\n", waveValue);
+				
+		// 振幅変調 --------------------------------------------------------------
+		//
+		// (11bit + 1bit) + (11bit + 1bit) : (22bit + 1bit)
+		waveValue = waveValue * amValue;
+		//printf("%d\n", waveValue);
+
+		// (22bit + 1bit) -> (11bit + 1bit)
+		waveValue = waveValue >> 12;
+		//printf("%d\n", waveValue);
+
+		// 出力値の補正 ***********************************************************
+		//
+		// ************************************************************************
+		
+		// for 12bit output (0..4096)
+		waveValue = waveValue + 1024;
 		printf("%d\n", waveValue);
 
 		// 16bit長の raw データとして出力
