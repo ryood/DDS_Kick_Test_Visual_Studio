@@ -1,0 +1,7 @@
+12bit output (0..4096) のテキスト形式で出力
+
+GoldWaveで読み込み
+
+File type: Raw(snd, raw)
+Attributes: ASCII 16 bit integer, mono
+Rate (Hz): 44100
