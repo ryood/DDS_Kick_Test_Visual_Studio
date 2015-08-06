@@ -2,12 +2,9 @@
 //
 // リズムマシン用に振幅変調のみを行う
 // 
-// サンプリング・レートはLFO系とWave系の2系統
+// Wave:  DDSで生成
+// Decay: 線形補間で生成
 //
-// Wave:  Wave系
-// Decay: LFO系
-//
-
 
 #include "stdafx.h"
 
@@ -22,93 +19,97 @@
 #include "WaveTable.h"
 
 /*********************************************************
-lookupTable     : 16bit (use 12bit) : 0..4096
+lookupTable       : 16bit : 0..65535
 
-wavePhaseRegister   : 32bit
-waveTunigWord       : 32bit
+wavePhaseRegister : 32bit
+waveTunigWord     : 32bit
 
 //ampAmount       : 8bit
 //toneAmount      : 8bit
-decayAmount     : 8bit
-//bpmAmount       : 8bit
+decayAmount       : 8bit
+bpmAmount         : 8bit
 **********************************************************/
 
-#define SAMPLE_CLOCK		44100.0f	// 44.1kHz
-#define LFO_DIV				10			// LFO_CLOCK = SAMPLE_CLOCK / LFO_DIV
+#define SAMPLE_CLOCK		(4800u)		// 48kHz
 
-#define LOOKUP_TABLE_SIZE	1024	// Lookup Table 1個のバイト長: 10bit
-#define LOKKUP_TABLE_N		2		// Lookup Table の個数
+#define MAX_DECAY_LEN		(9600u)	// 2秒 : 30BPM
+
+#define LOOKUP_TABLE_SIZE	(1024u)	// Lookup Table 1個のバイト長: 10bit
+#define LOKKUP_TABLE_N		(1u)		// Lookup Table の個数
 
 uint16_t *lookupTable[LOOKUP_TABLE_SIZE];
+int tick = 0;
+
+// BPM
+uint8_t bpm = 120;
 
 // Basic Wave
 uint32_t wavePhaseRegister;
 uint32_t waveTuningWord;
 double  waveValue;
 
-
 // Decay
-uint32_t decayPhaseRegister;
-uint32_t decayTuningWord;
-uint8_t  decayAmount = 255;
+uint8_t decayAmount = 33;
 
 // frequency > SAMPLE_CLOCK / 2^32 = about 10.27uHz
 double waveFrequency = 60.0f;
-double decayFrequency = 2.0f;
 
-int period = 44100;
+int period = SAMPLE_CLOCK * 2;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
-	uint32_t lfoCount = 1;	// 最初に1回LFO系の処理を行う
-	double amValue;
+	double amValue = 1.0f;
 	double decayValue;
+
+	double bps = (double)bpm / 60;
+
+	int beatCount = 0;
+	int decayCount = 0;
+
+	int decayStop = 0;	// 1: Decayの出力停止
 
 	_setmode(_fileno(stdout), _O_BINARY);
 
 	// lookupTable の準備
 	lookupTable[0] = waveTableSine;
-	lookupTable[1] = waveTableSawtoothDown;
 
 	// DDS用の変数の初期化
 	waveTuningWord = waveFrequency * pow(2.0f, 32) / SAMPLE_CLOCK;
-	decayTuningWord = decayFrequency * pow(2.0f, 32) / (SAMPLE_CLOCK / LFO_DIV);
 	wavePhaseRegister = 0;
-	decayPhaseRegister = 0;
+
+	// Decayの最大値を設定
+	int decayPeriod = decayAmount * MAX_DECAY_LEN / 256;
+	//printf("decayPeriod:\t%d\n", decayPeriod);
 
 	for (int i = 0; i < period; i++)
 	{
-		// LFO系の処理 ***********************************************************
+		if (tick % (int)(SAMPLE_CLOCK /  bps) == 0) {
+			// ↑整数演算のために丸めているので注意
+
+			beatCount++;
+			//printf("%d\t%d\n", tick, beatCount);
+
+			// Beatの先頭でdecayCountをリセット
+			decayStop = 0;
+			decayCount = 0;
+		}
+		tick++;
+		//printf("%d\n", tick);
+
+		// Decayの処理 ***********************************************************
 		//
-		//************************************************************************
-		if (--lfoCount == 0) {
-			lfoCount = LFO_DIV;
+		//***********************************************************************
+		printf("%d\t%d\n", beatCount, decayCount);
+		
+		if (!decayStop) {
+			decayCount++;
+		}
 
-			decayPhaseRegister += decayTuningWord;
-			//printf("decayPhaseRegister: %d\n", decayPhaseRegister);
-
-			// lookupTableのバイト長に丸める
-			// 32bit -> 10bit
-			uint16_t decayIndex = decayPhaseRegister >> 22;
-			//printf("decayIndex: %d\n", decayIndex);
-
-			uint16_t iDecayValue = *(lookupTable[1] + decayIndex);
-			//printf("iDecayValue:\t%d\n", iDecayValue);
-
-			// decayAmountで重み付け
-			decayValue = ((double)iDecayValue) * decayAmount / 256.0f;
-			//printf("decayValue:\t%f\n", decayValue);
-
-			// 浮動小数点に変換 (0.0 .. 1.0)
-			decayValue = decayValue / 4096.0f;
-			//printf("decayValue:\t%f\n", decayValue);
-
-			// 振幅変調変数に代入
-			amValue = decayValue;
-			//printf("amValue:\t%f\n", amValue);
-		}		
-		//printf("%f\t", amValue);
-
+		if (decayCount == decayPeriod) {
+			decayStop = 1;
+			decayCount = 0;
+		}
+		
 		// Wave系の処理 ***********************************************************
 		//
 		//************************************************************************
@@ -142,7 +143,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		// for 16bit output (-32768 .. 32767)
 		int16_t output_16bit_raw = waveValue * 32768;
-		printf("%d\n", output_16bit_raw); 
+		//printf("%d\n", output_16bit_raw); 
 		//fwrite(&output_16bit_raw, sizeof(output_16bit_raw), 1, stdout);
 	}
 
