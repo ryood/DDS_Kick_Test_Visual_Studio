@@ -30,31 +30,31 @@ decayAmount       : 8bit
 bpmAmount         : 8bit
 **********************************************************/
 
-#define SAMPLE_CLOCK		(4800u)		// 48kHz
+#define SAMPLE_CLOCK		(48000u)		// 48kHz
+#define MAX_DECAY_LEN		(48000u)		// 1秒 : 60BPM
 
-#define MAX_DECAY_LEN		(9600u)	// 2秒 : 30BPM
-
-#define LOOKUP_TABLE_SIZE	(1024u)	// Lookup Table 1個のバイト長: 10bit
+#define LOOKUP_TABLE_SIZE	(1024u)		// Lookup Table 1個のバイト長: 10bit
 #define LOKKUP_TABLE_N		(1u)		// Lookup Table の個数
-
-uint16_t *lookupTable[LOOKUP_TABLE_SIZE];
-int tick = 0;
 
 // BPM
 uint8_t bpm = 120;
+
+// Decay
+uint8_t decayAmount = 255;
+
+// frequency > SAMPLE_CLOCK / 2^32 = about 10.27uHz
+double waveFrequency = 60.0f;
+
+// 再生時間
+int period = SAMPLE_CLOCK;
+
+uint16_t *lookupTable[LOOKUP_TABLE_SIZE];
+int tick = 0;
 
 // Basic Wave
 uint32_t wavePhaseRegister;
 uint32_t waveTuningWord;
 double  waveValue;
-
-// Decay
-uint8_t decayAmount = 127;
-
-// frequency > SAMPLE_CLOCK / 2^32 = about 10.27uHz
-double waveFrequency = 60.0f;
-
-int period = SAMPLE_CLOCK * 2;
 
 int _tmain(int argc, _TCHAR* argv[])
 {
@@ -79,7 +79,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	// Decayの最大値を設定
 	int decayPeriod = decayAmount * MAX_DECAY_LEN / 256;
-	printf("decayPeriod:\t%d\n", decayPeriod);
+	//printf("decayPeriod:\t%d\n", decayPeriod);
 
 	for (int i = 0; i < period; i++)
 	{
@@ -107,31 +107,30 @@ int _tmain(int argc, _TCHAR* argv[])
 
 		if (decayCount == decayPeriod) {
 			decayStop = 1;
-			decayCount = 0;
 		}
 
-		decayValue = ((double)decayCount / decayPeriod) * UINT16_MAX;
+		decayValue = 1.0f - (double)decayCount / decayPeriod;
+		//printf("%f\t", decayValue);
 
-		printf("%f\n", decayValue);
+		amValue = decayValue;
 
-#if 0		
 		// Wave系の処理 ***********************************************************
 		//
 		//************************************************************************
 		wavePhaseRegister += waveTuningWord;
 		//printf("wavePhaseRegister:\t%d\n", wavePhaseRegister);
 		
-		// lookupTableのバイト長に丸める
-		// 32bit -> 16bit
-		uint16_t index = (wavePhaseRegister) >> 16;
-		//printf("index: %d\n", index);
+		// lookupTableの要素数に丸める
+		// 32bit -> 10bit
+		uint16_t index = (wavePhaseRegister) >> 22;
+		//printf("index:\t%d\n", index);
 
 		waveValue = *(lookupTable[0] + index);
 		//printf("waveValue:\t%f\n", waveValue);
 
 		// 浮動小数点に変換  (-1.0 .. 1.0)
-		waveValue = waveValue / 2048.0f - 1.0f;
-		//printf("waveValue:\t%f\n", waveValue
+		waveValue = (waveValue / UINT16_MAX) * 2.0f - 1.0f;
+		//printf("waveValue:\t%f\n", waveValue);
 		//printf("%f\t", waveValue);
 				
 		// 振幅変調 --------------------------------------------------------------
@@ -147,11 +146,9 @@ int _tmain(int argc, _TCHAR* argv[])
 		//printf("%d\n", output_12bit);
 
 		// for 16bit output (-32768 .. 32767)
-		int16_t output_16bit_raw = waveValue * 32768;
-		//printf("%d\n", output_16bit_raw); 
-		//fwrite(&output_16bit_raw, sizeof(output_16bit_raw), 1, stdout);
-#endif
+		int16_t output_16bit = waveValue * 32768;
+		printf("%d\n", output_16bit); 
+		//fwrite(&output_16bit_raw, sizeof(output_16bit), 1, stdout);
 	}
-
 	return 0;
 }
