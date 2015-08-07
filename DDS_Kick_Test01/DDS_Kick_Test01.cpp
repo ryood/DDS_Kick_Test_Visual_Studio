@@ -16,7 +16,7 @@
 #include <io.h>
 #include <fcntl.h>
 
-#include "WaveTable.h"
+#include "WaveTable_16bit.h"
 
 /*********************************************************
 lookupTable       : 16bit : 0..65535
@@ -49,7 +49,7 @@ uint32_t waveTuningWord;
 double  waveValue;
 
 // Decay
-uint8_t decayAmount = 33;
+uint8_t decayAmount = 127;
 
 // frequency > SAMPLE_CLOCK / 2^32 = about 10.27uHz
 double waveFrequency = 60.0f;
@@ -79,7 +79,7 @@ int _tmain(int argc, _TCHAR* argv[])
 
 	// Decayの最大値を設定
 	int decayPeriod = decayAmount * MAX_DECAY_LEN / 256;
-	//printf("decayPeriod:\t%d\n", decayPeriod);
+	printf("decayPeriod:\t%d\n", decayPeriod);
 
 	for (int i = 0; i < period; i++)
 	{
@@ -99,7 +99,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		// Decayの処理 ***********************************************************
 		//
 		//***********************************************************************
-		printf("%d\t%d\n", beatCount, decayCount);
+		//printf("%d\t%d\n", beatCount, decayCount);
 		
 		if (!decayStop) {
 			decayCount++;
@@ -109,7 +109,12 @@ int _tmain(int argc, _TCHAR* argv[])
 			decayStop = 1;
 			decayCount = 0;
 		}
-		
+
+		decayValue = ((double)decayCount / decayPeriod) * UINT16_MAX;
+
+		printf("%f\n", decayValue);
+
+#if 0		
 		// Wave系の処理 ***********************************************************
 		//
 		//************************************************************************
@@ -117,8 +122,8 @@ int _tmain(int argc, _TCHAR* argv[])
 		//printf("wavePhaseRegister:\t%d\n", wavePhaseRegister);
 		
 		// lookupTableのバイト長に丸める
-		// 32bit -> 10bit
-		uint16_t index = (wavePhaseRegister) >> 22;
+		// 32bit -> 16bit
+		uint16_t index = (wavePhaseRegister) >> 16;
 		//printf("index: %d\n", index);
 
 		waveValue = *(lookupTable[0] + index);
@@ -145,6 +150,7 @@ int _tmain(int argc, _TCHAR* argv[])
 		int16_t output_16bit_raw = waveValue * 32768;
 		//printf("%d\n", output_16bit_raw); 
 		//fwrite(&output_16bit_raw, sizeof(output_16bit_raw), 1, stdout);
+#endif
 	}
 
 	return 0;

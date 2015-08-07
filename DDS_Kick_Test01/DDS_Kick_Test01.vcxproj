@@ -81,7 +81,7 @@
   <ItemGroup>
     <ClInclude Include="stdafx.h" />
     <ClInclude Include="targetver.h" />
-    <ClInclude Include="WaveTable.h" />
+    <ClInclude Include="WaveTable_16bit.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="DDS_Kick_Test01.cpp" />
